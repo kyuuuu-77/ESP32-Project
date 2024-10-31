@@ -191,10 +191,18 @@ void loop() {
       if (readData.startsWith("DISCONNECT")) {
         Serial.println("인증 취소!!!");
         auth = false;
-      } else if (readData == "auth_" + password) {
-        auth = true;
-        Serial.println("인증 성공!!!");
-        bluetooth.println("auth_suc");
+      } else if (readData.startsWith("auth_")) {
+        Serial.println("auth 진입!");
+        if (readData == "auth_" + password) {
+          auth = true;
+          Serial.println("인증 성공!!!");
+          bluetooth.println("auth_suc");
+        } else {
+          auth = false;
+          Serial.println("인증 실패!!!");
+          bluetooth.println("auth_fail");
+        }
+        delay(200);
       } else if (readData.startsWith("change")) {
         password = readData.substring(7);
         Serial.println("새로운 인증번호 => " + password);
@@ -254,7 +262,7 @@ void loop() {
         }
       }
 
-      if (readData == "check_lock") {
+      if (readData == "menu 5") {
         if (lockMode) {
           Serial.println("lock_on");
           bluetooth.println("lock_on");
