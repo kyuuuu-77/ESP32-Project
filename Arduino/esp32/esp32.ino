@@ -100,7 +100,6 @@ int list_Y[3] = {0, 0, 0};
 int list_Z[3] = {0, 0, 0};
 
 void loop() {
-
   sensorValue = analogRead(BATTERY_PIN);  // 아날로그 값 읽기 (ADC 34번 핀)
   sensorValue += 72;
 
@@ -128,10 +127,6 @@ void loop() {
     int Val_Y = analogRead(Acc_Y);
     int Val_Z = analogRead(Acc_Z);
 
-    Serial.print("X : " + String(Val_X));
-    Serial.print(" | Y : " + String(Val_Y));
-    Serial.println(" | Z : " + String(Val_Z));
-
     display.println("Accerlator : ");
     display.println(String(Val_X) + "|" + String(Val_Y) + "|" + String(Val_Z));
 
@@ -144,90 +139,86 @@ void loop() {
     list_Y[0] = Val_Y;
     list_Z[0] = Val_Z;
 
-    if ((abs(list_X[0] - list_X[1]) > 50 && list_X[1] != 0) || (abs(list_Y[0] - list_Y[1]) > 50 && list_Y[1] != 0) || (abs(list_Z[0] - list_Z[1]) > 50 && list_Z[1] != 0)) {
+    if ((abs(list_X[0] - list_X[1]) > 70 && list_X[1] != 0) || (abs(list_Y[0] - list_Y[1]) > 70 && list_Y[1] != 0) || (abs(list_Z[0] - list_Z[1]) > 70 && list_Z[1] != 0)) {
       digitalWrite(27, HIGH);
-      delay(500);
+      delay(1000);
       digitalWrite(27, LOW);
       delay(500);
-      Serial.println("벨울림");
       display.println("Ring Bell!!!!");
     }
-  } else {
-    Serial.println(String(sensorValue) + " => " + String(battery) + " %, " + String(voltage) + " V");
   }
 
   if (!auth) {  // 인증전
     if (bluetooth.available() > 0) {
       String readData = bluetooth.readStringUntil('\n');  // 개행 문자까지 읽음
-      Serial.println(readData);
       display.print("BLE : ");
       display.println(String(readData));
 
       if (readData.startsWith("auth_")) {
-        Serial.println("auth 진입!");
+        display.println("auth menu!");
         if (readData == "auth_" + password) {
           auth = true;
-          Serial.println("인증 성공!!!");
+          display.println("auth_suc");
           bluetooth.println("auth_suc");
         } else {
           auth = false;
-          Serial.println("인증 실패!!!");
+          display.println("auth_fail");
           bluetooth.println("auth_fail");
         }
         delay(200);
       } else if (readData.startsWith("menu")) {  // 앱에서 인증하고 다시 시도하게 해야함
         auth = true;
-        Serial.println("menu 진입!");
+        display.println("auth_suc");
         bluetooth.println("auth_suc");
+        delay(200);
       }
     }
   } else {  // 인증후
     if (bluetooth.available() > 0) {
       String readData = bluetooth.readStringUntil('\n');  // 개행 문자까지 읽음
-      Serial.println(readData);
       display.print("BLE : ");
       display.println(String(readData));
 
       if (readData.startsWith("DISCONNECT")) {
-        Serial.println("인증 취소!!!");
+        display.println("auth_cancel");
         auth = false;
       } else if (readData.startsWith("auth_")) {
-        Serial.println("auth 진입!");
+        display.println("auth menu!");
         if (readData == "auth_" + password) {
           auth = true;
-          Serial.println("인증 성공!!!");
+          display.println("auth_suc");
           bluetooth.println("auth_suc");
         } else {
           auth = false;
-          Serial.println("인증 실패!!!");
+          display.println("auth_fail");
           bluetooth.println("auth_fail");
         }
         delay(200);
       } else if (readData.startsWith("change")) {
         password = readData.substring(7);
-        Serial.println("새로운 인증번호 => " + password);
+        display.println("new pass => " + password);
         bluetooth.println("change_suc");
 
         preferences.begin("nvs_storage", false);
         preferences.putString("password", password);
-        Serial.println("NVS에 저장 성공! 저장된 값 => " + preferences.getString("password", "null"));
         preferences.end();
+        delay(200);
       }
 
       if (readData == "menu 1") {  // 벨 울리기
         bluetooth.println("ring_suc");
-        delay(200);
         while (1) {
           digitalWrite(27, HIGH);
           delay(500);
           digitalWrite(27, LOW);
           delay(500);
-          Serial.println("벨울림");
+          display.println("ring_bell");
 
           readData = bluetooth.readStringUntil('\n');
           if (readData == "menu 2") {  // 벨 울리기 중지
             bluetooth.println("ring_stop");
-            Serial.println("벨꺼짐");
+            display.println("bell_off");
+            delay(200);
             break;
           }
         }
@@ -237,8 +228,9 @@ void loop() {
       if (readData == "menu 3") {             // 무게 값을 전송
         scale.set_scale(calibration_factor);  //캘리브레이션 값 적용
         weight = scale.get_units();
+        weight += 1;
 
-        Serial.println(String(weight) + " Kg");
+        display.println(String(weight) + " Kg");
         bluetooth.println(String(weight));
         delay(200);
       }
@@ -251,48 +243,52 @@ void loop() {
         }
         if (chargeValue >= 1500) {
           charging = true;
-          Serial.println("충전중...");
-          Serial.println(String(battery) + "+" + "/" + String(voltage));
+          display.print("charging ");
+          display.println(String(battery) + "+" + "/" + String(voltage));
           bluetooth.println(String(battery) + "+" + "/" + String(voltage));
         } else {
           charging = false;
-          Serial.println("충전중 아님!!!");
-          Serial.println(String(battery) + "/" + String(voltage));
+          display.println(String(battery) + "/" + String(voltage));
           bluetooth.println(String(battery) + "/" + String(voltage));
         }
+        delay(200);
       }
 
       if (readData == "menu 5") {
         if (lockMode) {
-          Serial.println("lock_on");
+          display.println("lock_on");
           bluetooth.println("lock_on");
         } else {
-          Serial.println("lock_off");
+          display.println("lock_off");
           bluetooth.println("lock_off");
         }
+        delay(200);
       }
+
       if (readData == "lock_on") {
         lockMode = true;
-        Serial.println("캐리어 잠금!");
+        display.println("lock_suc");
         bluetooth.println("lock_suc");
 
         preferences.begin("nvs_storage", false);
         preferences.putUInt("lock", 1);
-        Serial.println("NVS에 저장 성공! 저장된 값 => " + preferences.getUInt("lock", 0));
         preferences.end();
+        delay(200);
       }
+
       if (readData == "lock_off") {
         lockMode = false;
-        Serial.println("캐리어 잠금해제!");
+        display.println("unlock_suc");
         bluetooth.println("unlock_suc");
 
         preferences.begin("nvs_storage", false);
         preferences.putUInt("lock", 0);
-        Serial.println("NVS에 저장 성공! 저장된 값 => " + preferences.getUInt("lock", 0));
         preferences.end();
+        delay(200);
       }
     }
   }
+
   display.display();
-  delay(500);
+  delay(700);
 }
